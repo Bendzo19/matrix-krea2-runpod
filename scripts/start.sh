@@ -99,6 +99,12 @@ fi
 # https://<POD_ID>-8188.proxy.runpod.net je v MATRIX nodoch povolený automaticky.
 cd "$COMFYUI_DIR"
 ARGS=(--listen 0.0.0.0 --port 8188 --preview-method "${PREVIEW_METHOD:-auto}")
+# Klik na "HTTP Service" v console.runpod.io je cross-site navigácia na *.proxy.runpod.net
+# (Sec-Fetch-Site: cross-site) a ComfyUI origin middleware by vrátil 403. CORS režim
+# obmedzený na vlastnú proxy doménu podu tento middleware nahradí.
+if [ -n "${RUNPOD_POD_ID:-}" ]; then
+    ARGS+=(--enable-cors-header "https://${RUNPOD_POD_ID}-8188.proxy.runpod.net")
+fi
 # shellcheck disable=SC2206
 [ -n "${COMFYUI_EXTRA_ARGS:-}" ] && ARGS+=(${COMFYUI_EXTRA_ARGS})
 
