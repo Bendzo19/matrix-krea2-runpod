@@ -51,6 +51,8 @@ Environment variables:
 | `JUPYTER_PASSWORD` | tvoje heslo | prihlásenie do JupyterLab (8888). Bez neho sa vygeneruje token do logu. |
 | `XAI_API_KEY` | `{{ RUNPOD_SECRET_xai_api_key }}` | *voliteľné* — iba pre Auto Prompter (tlačidlo **Generate Prompt**, platené xAI). Kľúč si ulož v RunPod → Secrets. |
 | `HF_TOKEN` | `{{ RUNPOD_SECRET_hf_token }}` | *voliteľné* — modely sú verejné, token len obíde rate-limit HF. |
+| `LORA_URLS` | *(prázdne)* | odkazy na LoRA (Civitai stránka/verzia, Hugging Face, priamy link), oddelené čiarkou. Stiahnu sa do `models/loras` pri štarte. |
+| `CIVITAI_TOKEN` | *(prázdne)* | API kľúč z civitai.com (väčšina Civitai downloadov ho vyžaduje). |
 | `DOWNLOAD_GROUPS` | `core,eye,skin` | ktoré modely sťahovať (default všetky). |
 | `COMFYUI_EXTRA_ARGS` | *(prázdne)* | extra argumenty pre `main.py`. |
 
@@ -70,9 +72,9 @@ Pri vytváraní podu nastav filter **CUDA 12.8+** (image používa cu128) a vybe
 ## 3. Prvé spustenie
 
 1. Deploy pod so šablónou. V **Logs** uvidíš sťahovanie modelov (`[models] …`).
-2. Keď sa objaví `Štartujem ComfyUI`, klikni **Connect → HTTP 8188**.
+2. Keď sa objaví `Starting ComfyUI`, klikni **Connect → HTTP 8188**.
 3. Vľavo **Workflows** → otvor `MATRIX-Krea2-V1.json` (už je predinštalovaný, Classic canvas je zapnutý).
-4. Voliteľná kontrola (JupyterLab terminál alebo SSH): `/opt/scripts/check.sh` → má skončiť *VŠETKO OK*.
+4. Voliteľná kontrola (JupyterLab terminál alebo SSH): `/opt/scripts/check.sh` → má skončiť *ALL OK*.
 
 ## 4. Najlepšie nastavenia (podľa autora + dokumentácie)
 
@@ -92,8 +94,27 @@ Autor vo videu výslovne hovorí: **FP8 model a všetko nechať na defaulte**. W
 Ďalej:
 - **Nepoužívaj** `--fast`, SageAttention a pod. v `COMFYUI_EXTRA_ARGS` — FP8 cesta s MATRIX model guardom bola overená len bez nich.
 - **Nodes 2.0** nie je podporovaný — template ho vypína (`Comfy.VueNodes.Enabled=false`). Nezapínaj ho.
-- Vlastné LoRA daj do `/workspace/matrix-krea2/models/loras/` a pridaj riadok v *Power Lora Loader*.
+- LoRA: `LORA_URLS` alebo upload do `/workspace/LORAS`, potom **R** v ComfyUI a *Power Lora Loader → ➕ Add Lora* (sila 0.8–1.0, trigger slovo na začiatok promptu). Ak hlási chybu o encoder/protected patch, nastav v loaderi *Separate Model & Clip* a clip = 0 (MATRIX guard odmieta LoRA patche na text encoder).
 - Auto Prompter: vlož referenčné obrázky → **Generate Prompt** (pár centov cez xAI) → skopíruj výsledok do manuálneho promptu.
+
+## 5. Zverejnenie pre zákazníkov (public template)
+
+Cieľ: zákazník nájde template v RunPod → **Explore**, klikne **Deploy**, pridá LoRA a generuje.
+
+1. Image v GHCR musí byť **Public** (krok 1.4) — inak ho cudzí pod nestiahne.
+2. RunPod → **Templates → New Template** vyplň podľa kroku 2, ale:
+   - **Visibility: Public**
+   - **Template Name:** napr. `Krea 2 AI Influencer 2K/4K (ComfyUI)` — názvy „MATRIX LAB“ / „MATRIX Krea 2“
+     nie sú súčasťou Apache licencie, používaj ich iba ako uvedenie pôvodu („based on MATRIX Krea 2 workflow by MATRIX LAB“).
+   - **README:** vlož celý obsah [TEMPLATE_README.md](TEMPLATE_README.md) (anglický návod pre zákazníkov).
+   - Env premenné pridaj **s prázdnou hodnotou** (`LORA_URLS`, `CIVITAI_TOKEN`, `JUPYTER_PASSWORD`, `XAI_API_KEY`) —
+     zákazník ich vyplní pri deployi. **Nevkladaj tam svoje tokeny ani `{{ RUNPOD_SECRET_… }}`** — tie fungujú len na tvojom účte.
+3. Po uložení skopíruj odkaz na template (`https://console.runpod.io/deploy?template=<id>`) a pošli ho zákazníkom.
+   Pridaním `&ref=<tvoj-referral-kód>` získaš aj referral odmenu od RunPodu.
+4. RunPod má program odmien pre autorov verejných template (podiel z výdavkov na podoch s tvojím template) — skontroluj aktuálne podmienky v RunPod → *Referrals*.
+
+Zákazník potom: **Deploy → (voliteľne vloží link na LoRA do `LORA_URLS`) → Connect 8188 → Workflows → prompt → Run.**
+LoRA môže aj len pretiahnuť do priečinka `LORAS` v JupyterLab (port 8888) a v ComfyUI stlačiť **R**.
 
 ## Priečinky na pode
 
@@ -105,7 +126,9 @@ Autor vo videu výslovne hovorí: **FP8 model a všetko nechať na defaulte**. W
 ├── user/default/workflows/MATRIX-Krea2-V1.json
 ├── api/MATRIX-Krea2-V1.api.json   # pre automatizáciu cez /prompt API
 ├── logs/          # comfyui.log, models.log, jupyter.log
-└── on_start.sh    # (voliteľné) tvoj skript, spustí sa pred ComfyUI – napr. sťahovanie LoRA
+└── on_start.sh    # (voliteľné) tvoj skript, spustí sa pred ComfyUI
+/workspace/LORAS   -> models/loras   (skratka pre upload v JupyterLab)
+/workspace/OUTPUTS -> output         (skratka pre stiahnutie fotiek)
 ```
 
 Výstupy stiahneš cez JupyterLab (port 8888 → pravý klik → Download) alebo priamo v ComfyUI.

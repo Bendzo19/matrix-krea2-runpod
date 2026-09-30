@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Kontrola inštalácie na bežiacom pode:  /opt/scripts/check.sh
-# Overí verzie, 20 MATRIX registrácií z jedného balíka, chýbajúce nody workflowu a modely.
-# Nič nespúšťa (žiadne generovanie, žiadne volanie xAI).
+# Installation check on a running pod:  /opt/scripts/check.sh
+# Verifies versions, the 20 MATRIX registrations, missing workflow nodes and models.
+# Runs nothing (no generation, no xAI call).
 set -uo pipefail
 COMFYUI_DIR="${COMFYUI_DIR:-/opt/ComfyUI}"
 DATA="${DATA_DIR:-/workspace/matrix-krea2}"
@@ -19,9 +19,9 @@ def res(cond, msg):
 def head(path):
     return subprocess.run(["git", "-C", path, "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
 
-print("== Verzie")
+print("== Versions")
 import torch
-res(torch.__version__.startswith("2.8.0"), f"PyTorch {torch.__version__}, CUDA dostupná: {torch.cuda.is_available()}")
+res(torch.__version__.startswith("2.8.0"), f"PyTorch {torch.__version__}, CUDA available: {torch.cuda.is_available()}")
 if torch.cuda.is_available():
     p = torch.cuda.get_device_properties(0)
     print(f"       GPU: {p.name}, {p.total_memory/2**30:.1f} GB VRAM")
@@ -35,27 +35,27 @@ for mod, ver in (("onnxruntime", "1.29.0"), ("ultralytics", "8.4.142")):
     except Exception as e:
         res(False, f"{mod}: {e}")
 
-print("== Živé nody (ComfyUI /object_info)")
+print("== Live nodes (ComfyUI /object_info)")
 try:
     info = json.load(urllib.request.urlopen(url + "/object_info", timeout=30))
 except Exception as e:
-    print(f"  FAIL ComfyUI nebeží na {url}: {e}"); sys.exit(1)
+    print(f"  FAIL ComfyUI is not running at {url}: {e}"); sys.exit(1)
 manifest = json.load(open(os.path.join(mx, "MANIFEST.json")))
 want = manifest["nodes"]
-res(len(want) == 20 and manifest["version"] == "0.4.0", f"manifest 0.4.0 s {len(want)} registráciami")
+res(len(want) == 20 and manifest["version"] == "0.4.0", f"manifest 0.4.0 with {len(want)} registrations")
 missing = [n for n in want if n not in info]
-res(not missing, "všetkých 20 MATRIX ID registrovaných" + (f" — chýba: {missing}" if missing else ""))
+res(not missing, "all 20 MATRIX IDs registered" + (f" — missing: {missing}" if missing else ""))
 wrong = [n for n in want if n in info and "MATRIX-LAB-Nodes" not in str(info[n].get("python_module", ""))]
-res(not wrong, "všetky MATRIX ID z jednotného balíka MATRIX-LAB-Nodes" + (f" — iný zdroj: {wrong}" if wrong else ""))
+res(not wrong, "all MATRIX IDs come from the unified MATRIX-LAB-Nodes pack" + (f" — other source: {wrong}" if wrong else ""))
 
 wf_path = os.path.join(data, "user/default/workflows/MATRIX-Krea2-V1.json")
 wf = json.load(open(wf_path, encoding="utf-8"))
 virtual = {"Note", "MarkdownNote", "Fast Groups Bypasser (rgthree)", "Reroute", "PrimitiveNode"}
 types = sorted({n["type"] for n in wf["nodes"]} - virtual)
 miss = [t for t in types if t not in info]
-res(not miss, f"workflow: {len(types)} typov nodov, chýbajúce: {miss or 'žiadne'}")
+res(not miss, f"workflow: {len(types)} node types, missing: {miss or 'none'}")
 
-print("== Modely v dropdownoch")
+print("== Models in dropdowns")
 def choices(node, inp):
     try: return info[node]["input"]["required"][inp][0]
     except Exception: return []
@@ -64,8 +64,8 @@ res("wan_2.1_vae.safetensors" in choices("VAELoader", "vae_name"), "VAE wan_2.1_
 res("qwen3vl_4b_bf16.safetensors" in str(info.get("MATRIX_Krea2CLIPLoader", {}).get("input", {})), "CLIP qwen3vl_4b_bf16")
 verified = os.path.join(data, "models/.verified")
 n = len(os.listdir(verified)) if os.path.isdir(verified) else 0
-res(n >= 7, f"SHA-256 overených súborov: {n}/7")
+res(n >= 7, f"SHA-256 verified files: {n}/7")
 
-print("\nVÝSLEDOK:", "VŠETKO OK — môžeš generovať" if ok else "niečo chýba, pozri FAIL riadky vyššie")
+print("\nRESULT:", "ALL OK — ready to generate" if ok else "something is missing, see FAIL lines above")
 sys.exit(0 if ok else 1)
 PY

@@ -23,6 +23,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PATH=/opt/venv/bin:$PATH \
     COMFYUI_DIR=/opt/ComfyUI \
     YOLO_OFFLINE=True \
+    LANG=C.UTF-8 \
+    PYTHONIOENCODING=utf-8 \
     HF_HUB_DISABLE_TELEMETRY=1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -76,7 +78,7 @@ RUN uv pip install "jupyterlab==4.4.*"
 COPY models.txt /opt/models.txt
 COPY comfy.settings.json /opt/defaults/comfy.settings.json
 COPY scripts/ /opt/scripts/
-RUN sed -i 's/\r$//' /opt/scripts/*.sh /opt/models.txt && chmod +x /opt/scripts/*.sh
+RUN sed -i 's/\r$//' /opt/scripts/*.sh /opt/scripts/*.py /opt/models.txt && chmod +x /opt/scripts/*.sh /opt/scripts/*.py
 
 # Rýchly sanity check (build beží bez GPU, preto iba import bez načítania modelu)
 RUN cd ${COMFYUI_DIR} && python -c "import torch, folder_paths, onnxruntime, ultralytics, segment_anything; print('torch', torch.__version__)"

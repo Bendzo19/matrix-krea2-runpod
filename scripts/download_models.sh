@@ -30,16 +30,16 @@ verify() {  # verify <file> <sha> <bytes> <rel>
     local file="$1" sha="$2" bytes="$3" rel="$4" marker
     marker="$(marker_for "$rel")"
     [ -f "$file" ] || return 1
-    [ "$(stat -c %s "$file")" = "$bytes" ] || { log "zlá veľkosť: $rel"; return 1; }
+    [ "$(stat -c %s "$file")" = "$bytes" ] || { log "wrong size: $rel"; return 1; }
     if [ -z "${FORCE_REHASH:-}" ] && [ -f "$marker" ] && [ "$(cat "$marker")" = "$sha" ]; then
         return 0
     fi
-    log "overujem SHA-256: $rel"
+    log "verifying SHA-256: $rel"
     if [ "$(sha256sum "$file" | cut -d' ' -f1)" = "$sha" ]; then
         echo "$sha" > "$marker"
         return 0
     fi
-    log "SHA-256 NESEDÍ: $rel"
+    log "SHA-256 MISMATCH: $rel"
     rm -f "$marker"
     return 1
 }
@@ -61,7 +61,7 @@ FAILED=0
 while IFS='|' read -r group rel url sha bytes; do
     [ -z "${group// }" ] && continue
     case "$group" in \#*) continue ;; esac
-    case "$GROUPS_WANTED" in *",$group,"*) ;; *) log "preskakujem ($group): $rel"; continue ;; esac
+    case "$GROUPS_WANTED" in *",$group,"*) ;; *) log "skipping ($group): $rel"; continue ;; esac
 
     dest="$MODELS_DIR/$rel"
     mkdir -p "$(dirname "$dest")"
@@ -73,7 +73,7 @@ while IFS='|' read -r group rel url sha bytes; do
     is_hf=0; case "$url" in https://huggingface.co/*) is_hf=1 ;; esac
     ok=0
     for attempt in 1 2 3; do
-        log "sťahujem ($attempt/3): $rel  [$(numfmt --to=iec "$bytes")]"
+        log "downloading ($attempt/3): $rel  [$(numfmt --to=iec "$bytes")]"
         if download "$url" "$dest" "$is_hf" && verify "$dest" "$sha" "$bytes" "$rel"; then
             ok=1; break
         fi
@@ -82,7 +82,7 @@ while IFS='|' read -r group rel url sha bytes; do
     if [ "$ok" = 1 ]; then
         log "OK  $rel"
     else
-        log "CHYBA: $rel sa nepodarilo stiahnuť/overiť"
+        log "ERROR: could not download/verify $rel"
         FAILED=1
     fi
 done < "$MANIFEST"
